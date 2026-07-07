@@ -1,0 +1,11 @@
+Package: TGM
+Type: Package
+Title: Triangular Growth Model
+Version: 0.1.0
+Author: Who wrote it
+Maintainer: The package maintainer <yourself@somewhere.net>
+Description: Triangular Growth Model
+    Use four spaces when indenting paragraphs within the Description.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
