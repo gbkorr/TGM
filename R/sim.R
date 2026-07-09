@@ -130,11 +130,13 @@ tick = function(sim, n_ticks=1){
 				link = links[lid,]
 
 				#get parameters for current link pos
-				link_range = rules$link_range(link[3:4])
-				cohesion = rules$cohesion(link[3:4])
+				pos = link[3:4]
+				link_range = rules$link_range(pos)
+				cohesion = rules$cohesion(pos)
+				contraction_timer = rules$contraction(pos) / (rules$mobility(pos) * rules$growth_rate(pos))
 
 				# ---- Get Closest Particle ----
-				nearby_pids = unlist(chunks[get_adjacent_chunk_ids(ceiling(link[3:4]/chunksize))])
+				nearby_pids = unlist(chunks[get_adjacent_chunk_ids(ceiling(pos/chunksize))])
 
 				#search through all nearby particles
 				nearby_pids = nearby_pids[nearby_pids != link[1] & nearby_pids != link[2]] #ignore your constituents
@@ -142,7 +144,7 @@ tick = function(sim, n_ticks=1){
 					particles[nearby_pids,1] - link[3],
 					particles[nearby_pids,2] - link[4]
 				) #vectors from link midpoint to particles
-				dists = apply(vecs,1,\(pos)sqrt(sum(pos^2)))
+				dists = apply(vecs,1,\(xy)sqrt(sum(xy^2)))
 				already_linked = particles[nearby_pids,3] != -1
 				if (cohesion > 0) dists[already_linked] = dists[already_linked]/cohesion #apply cohesion penalty
 				else dists[already_linked] = Inf
@@ -169,12 +171,9 @@ tick = function(sim, n_ticks=1){
 				}
 
 				# ---- Link with Closest Particle
-				if (particles[pid,3] == -1) { #assign contraction timer if particle was free
-					pos = particles[pid,1:2]
-					particles[pid,3] = rules$contraction(pos) / (rules$mobility(pos) * rules$growth_rate(pos))
-				}
+				if (particles[pid,3] == -1) particles[pid,3] = contraction_timer #assign contraction timer if particle was free. uses location of link rather than particle; this doesn't really matter
 
-				active_sides = c(TRUE,TRUE)
+				active_sides = c(TRUE,TRUE) #for branching, TODO
 
 				if (preexisting_links[1] == 0){ #if there's not already a link between link[1] and the closest particle
 					links[lid,8] = total_lids #set child
@@ -208,8 +207,26 @@ tick = function(sim, n_ticks=1){
 		}
 
 		# ---- Contract Particles (in parallel)----
+		active_particles = which(particles[,3] > 0)
+		n_active = length(active_particles)
+		if (n_active){ #if there are any particles to contract
+			new_particles = matrix(0,nrow=length(active_particles),ncol=3) #will overwrite particles later to apply changes in parallel
 
+			for (p in 1:n_active){
+				pid = active_particles[p]
+				particle = particles[pid,]
+				mobility = rules$mobility(particle[1:2]) * rules$growth_rate(particle[1:2])
+				neighbors = particle_neighbors[[pid]]
+				centroid = sum_coords(particles[neighbors,1:2,drop=FALSE])
 
+				particle[1:2] = particle[1:2] * (1 - mobility) + mobility * centroid / length(neighbors)
+
+				particle[3] = particle[3] - 1 #decrement contraction timer
+				new_particles[p,] = particle
+			}
+
+			particles[active_particles,] = new_particles
+		}
 		# ---- Cleanup ----
 		#if link matrix is almost full, double its size
 		if (total_lids > (nrow(links) - length(active_lids) * 4)) links = rbind(links,matrix(0,nrow(links),ncol(links)))
@@ -220,7 +237,6 @@ tick = function(sim, n_ticks=1){
 	sim$state = list(particles=particles,particle_neighbors=particle_neighbors,particle_links=particle_links,links=links) #repack into sim object
 	sim #return sim
 }
-
 
 get_adjacent_chunk_ids = function(cpos){
 	chunks = rbind(
@@ -243,9 +259,20 @@ get_adjacent_chunk_ids = function(cpos){
 	else if (cpos[2] <= 0) chunks = chunks[-c(4,7,9),]
 
 	return(chunks)
+} #chunkpos
+sum_coords = function(M) c(sum(M[,1]),sum(M[,2]))
+
+
+test = function() Sim() |> tick(1000) |> draw()
+#TESTING ONLY draw function
+draw = function(sim){
+	particles=sim$state$particles
+	links=sim$state$links
+	plot(NULL,xlim=range(particles[,1]),ylim=range(particles[,2]))
+	for (l in 1:sum(links[,1] != 0)){
+			p1 = particles[links[l,1],1:2]
+			p2 = particles[links[l,2],1:2]
+			lines(c(p1[1],p2[1]),c(p1[2],p2[2]))
+	}
 }
-
-
-test = function() Sim() |> tick(100)
-
 
