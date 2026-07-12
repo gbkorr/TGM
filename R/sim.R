@@ -3,9 +3,10 @@
 # ---- Parameter Initialization ----
 # rules prototype
 Rules = function(
-	link_range = 0.18,
+	link_range = 0.25,
 	mobility = 0.04,
 	contraction = 1.0,
+
 	cohesion = 0.0,
 	branching = 1.0,
 
@@ -17,13 +18,48 @@ Rules = function(
 #evaluates parameter as either constant or a function of position
 parameter = function(rule) ifelse(is.function(rule),rule,function(pos) rule)
 
+
+# ---- Helpers ----
+get_chunks = function(particles,chunksize,region_size){
+	chunkrows = ceiling(region_size/chunksize)
+	chunks = matrix(list(),chunkrows + 2,chunkrows + 2) #empty buffer chunks in the +x +y direction to prevent subscript OOB
+	for (pid in 1:nrow(particles)){
+		chunk_pos = ceiling(particles[pid,1:2]/chunksize) #get which chunk the particle is in
+		chunks[chunk_pos[1],chunk_pos[2]][[1]] = c(chunks[chunk_pos[1],chunk_pos[2]][[1]], pid) #add its pid to that chunk
+	}
+	chunks
+}
+get_adjacent_chunk_ids = function(cpos){
+	chunks = rbind(
+		cpos,
+		cpos + c(1,0),
+		cpos + c(1,1),
+		cpos + c(1,-1),
+		cpos + c(-1,0),
+		cpos + c(-1,1),
+		cpos + c(-1,-1),
+		cpos + c(0,1),
+		cpos + c(0,-1)
+	)
+
+	culllist = c() #remove invalid chunk ids
+	if (cpos[1] <= 0) {
+		if (cpos[2] <= 0) chunks = chunks[-c(4,5,6,7,9),]
+		else chunks = chunks[-c(5,6,7),]
+	}
+	else if (cpos[2] <= 0) chunks = chunks[-c(4,7,9),]
+
+	return(chunks)
+} #chunkpos
+sum_coords = function(M) c(sum(M[,1]),sum(M[,2]))
+
+
 # ---- Particle Initialization ----
 #particle initialization prototype
 P_rules = function(
 	size = 4, #length and width of bounding region
 	density = 200, #particles/unit. TODO: add ability for heatmap
-	particle_seed = 1, #seed for particle distribution
-	chunksize = 0.25 #initial chunksize; if smaller than link_range, particles are re-chunked
+	particle_seed = 1 #seed for particle distribution
 ) list(as.list(environment()))[[1]]
 
 #initialize particles
@@ -43,12 +79,7 @@ Init = function(p_rules=P_rules()){
 # entry: LIST of [pid] of particles in that chunk
 #--- particles move sufficiently little such that we don't have to update this dynamically
 
-	chunkrows = ceiling(p_rules$size/p_rules$chunksize)
-	chunks = matrix(list(),chunkrows + 2,chunkrows + 2) #empty buffer chunks in the +x +y direction to prevent subscript OOB
-	for (pid in 1:n_particles){
-		chunk_pos = ceiling(particles[pid,1:2]/p_rules$chunksize) #get which chunk the particle is in
-		chunks[chunk_pos[1],chunk_pos[2]][[1]] = c(chunks[chunk_pos[1],chunk_pos[2]][[1]], pid) #add its pid to that chunk
-	}
+	chunks = get_chunks(particles,0.25,p_rules$size) #default chunksize is 0.25, since link_range is usually below that
 
 #particles_neighbors: LIST indexed by [pid], i.e. one row per particle
 # entry: list of particles [pid] connected to this particle
@@ -77,26 +108,31 @@ Init = function(p_rules=P_rules()){
 
 	links = matrix(0,nrow=n_particles*2.5,ncol=9) #links gets doubled in size any time it's almost full
 
-	list(particles=particles,chunks=chunks,particle_neighbors=particle_neighbors,particle_links=particle_links,links=links)
+	list(particles=particles,chunks=chunks,particle_neighbors=particle_neighbors,particle_links=particle_links,links=links,p_rules=p_rules)
 }
 default_init = Init()
 
 # ---- Sim Initialization ----
 Sim = function(rules=Rules(),state=default_init){
-	#check chunksize and rechunk if it's above TODO
-	rules$chunksize = 0.25
+	#re-chunk if link_range is greater than 0.25
+	if (is.function(rules$link_range)) { #if linkrange is a function, disable chunking
+		state$chunks = list(1:nrow(state$particles))
+		rules$chunksize = 2 * state$p_rules$size
+	}
+	else if (rules$link_range > 0.25) { #recalculate chunks if needed
+		state$chunks = get_chunks(state$particles,rules$link_range,state$p_rules$size)
+		rules$chunksize = rules$link_range
+	}
+	else rules$chunksize = 0.25 #default chunk size is 0.25, only increases if linkrange is bigger
 
 	# ---- Spawn Initial Link ----
 	if (!is.null(rules$seed_pos)) state$particles[1,1:2] = rules$seed_pos
-	else state$particles[1,1:2] = c(max(state$particles[,1]),max(state$particles[,2]))/2
+	else state$particles[1,1:2] = state$p_rules$size * c(0.5,0.5)
 	state$links[1,] = c(1,1,state$particles[1,1],state$particles[1,2],1,1,0,0,0)
 
 	set.seed(rules$seed) #set seed for model growth
 	list(state=state,rules=rules,time=1,rng=.Random.seed)
 }
-
-
-
 
 # ---- Tick ----
 #unfortunately very delicate and optimized; would not recommend editing.
@@ -111,6 +147,7 @@ tick = function(sim, n_ticks=1){
 
 	#loop in here instead of a separate function to reduce overhead
 	for (t in 1:n_ticks){
+		cat(sep='','\r',t)
 		# ---- Grow Links (in series) ----
 		active_lids = which(links[,5] == 1)
 		if (is.function(sim$rules$growth_rate)) growth_rates = rules$growth_rate(links[active_lids,3:4]) #growth rate heatmap
@@ -170,7 +207,7 @@ tick = function(sim, n_ticks=1){
 					}
 				}
 
-				# ---- Link with Closest Particle
+				# ---- Link with Closest Particle ----
 				if (particles[pid,3] == -1) particles[pid,3] = contraction_timer #assign contraction timer if particle was free. uses location of link rather than particle; this doesn't really matter
 
 				active_sides = c(TRUE,TRUE) #for branching, TODO
@@ -234,34 +271,13 @@ tick = function(sim, n_ticks=1){
 
 	sim$rng = .Random.seed #save rng state
 	sim$time = sim$time + n_ticks
-	sim$state = list(particles=particles,particle_neighbors=particle_neighbors,particle_links=particle_links,links=links) #repack into sim object
+	sim$state = list(particles=particles,particle_neighbors=particle_neighbors,particle_links=particle_links,links=links,p_rules=p_rules) #repack into sim object
 	sim #return sim
 }
 
-get_adjacent_chunk_ids = function(cpos){
-	chunks = rbind(
-		cpos,
-		cpos + c(1,0),
-		cpos + c(1,1),
-		cpos + c(1,-1),
-		cpos + c(-1,0),
-		cpos + c(-1,1),
-		cpos + c(-1,-1),
-		cpos + c(0,1),
-		cpos + c(0,-1)
-	)
 
-	culllist = c() #remove invalid chunk ids
-	if (cpos[1] <= 0) {
-		if (cpos[2] <= 0) chunks = chunks[-c(4,5,6,7,9),]
-		else chunks = chunks[-c(5,6,7),]
-	}
-	else if (cpos[2] <= 0) chunks = chunks[-c(4,7,9),]
 
-	return(chunks)
-} #chunkpos
-sum_coords = function(M) c(sum(M[,1]),sum(M[,2]))
-
+# ---- Other ----
 
 test = function() Sim() |> tick(1000) |> draw()
 #TESTING ONLY draw function
