@@ -3,7 +3,7 @@
 # ---- Parameter Initialization ----
 # rules prototype
 Rules = function(
-	link_range = 0.25,
+	link_range = 0.18,
 	mobility = 0.04,
 	contraction = 1.0,
 
@@ -174,38 +174,51 @@ tick = function(sim, n_ticks=1){
 
 				# ---- Get Closest Particle ----
 				nearby_pids = unlist(chunks[get_adjacent_chunk_ids(ceiling(pos/chunksize))])
+				nearby_pids = nearby_pids[nearby_pids != link[1] & nearby_pids != link[2]] #ignore the link's own constituents
+				if (length(nearby_pids) == 0) next #skip if no particles nearby
 
 				#search through all nearby particles
-				nearby_pids = nearby_pids[nearby_pids != link[1] & nearby_pids != link[2]] #ignore your constituents
 				vecs = cbind(
 					particles[nearby_pids,1] - link[3],
 					particles[nearby_pids,2] - link[4]
 				) #vectors from link midpoint to particles
 				dists = apply(vecs,1,\(xy)sqrt(sum(xy^2)))
-				already_linked = particles[nearby_pids,3] != -1
+				already_linked = which(particles[nearby_pids,3] != -1)
 				if (cohesion > 0) dists[already_linked] = dists[already_linked]/cohesion #apply cohesion penalty
-				else dists[already_linked] = Inf
+				else dists[already_linked] = Inf #speed up the math if cohesion is disabled
 
+				# ---- Check Validity ----
+				skip = FALSE
 				closest_particle = which.min(dists)
-				preexisting_links = c(0,0) #which links are already there? lid of preexisting link w/ the closest particle connected to endpoint1, endpoint2. 0 = does not exist
-				if (dists[closest_particle] > link_range) break #invalid; closest particle is out of link_range
-				else {
+				if (dists[closest_particle] > link_range) skip = TRUE #no particles within range; skip to the next link to grow
+				else while (TRUE){
+					preexisting_links = c(0,0) #which links are already there? lid of preexisting link w/ the closest particle connected to endpoint1, endpoint2. 0 = does not exist
 					pid = nearby_pids[closest_particle]
 					if (particles[pid,3] != -1) { #particle is already linked with something
-						bp = particle_links[[pid]] #get all links connected to that particle
-						#we want to make sure we don't duplicate a link
-						preexisting_links[1] = link[1] %in% bp #shared links
-						preexisting_links[2] = link[2] %in% bp
+							neighbors = particle_neighbors[[pid]] #get all particles connected to that particle
+							#we want to make sure we don't duplicate a link
+							preexisting_links = c(
+								link[1] %in% neighbors, #is particle link[1] already connected to this particle?
+								link[2] %in% neighbors
+							)
 
-						sum_pre = sum(preexisting_links)
-						if (sum_pre == 2) break #already bonded with both endpoints; invalid
-						else if (sum_pre == 1){
-							#expensive, unavoidable intersect() call to see what link is already there
-							if (l1) preexisting_links = c(intersect(particle_links[[endpoints[1]]],particle_links[[pdx]]),0)
-							else if (l2) preexisting_links = c(0,intersect(particle_links[[endpoints[2]]],particle_links[[pdx]]))
-						}
+							sum_pre = sum(preexisting_links)
+							if (sum_pre == 2) {
+								dists = dists[-closest_particle]
+								nearby_pids = nearby_pids[-closest_particle]
+								closest_particle = which.min(dists)
+								if (dists[closest_particle] > link_range || length(dists) == 0) {skip = TRUE; break}
+								next
+							}
+							else if (sum_pre == 1){
+								#expensive, unavoidable intersect() call to see what link is already there so we can record it as a child
+								if (preexisting_links[1]) preexisting_links = c(intersect(particle_links[[pid]],particle_links[[link[1]]]),0)
+								else if (preexisting_links[2]) preexisting_links = c(0,intersect(particle_links[[pid]],particle_links[[link[2]]]))
+							}
 					}
+					break
 				}
+				if (skip) next #no valid particles; skip this link
 
 				# ---- Link with Closest Particle ----
 				if (particles[pid,3] == -1) particles[pid,3] = contraction_timer #assign contraction timer if particle was free. uses location of link rather than particle; this doesn't really matter
@@ -224,7 +237,7 @@ tick = function(sim, n_ticks=1){
 				else links[lid,8] = preexisting_links[1] #IMPORTANT: records this new connection in the network; the preexisting link becomes a child because it's included in the triangle.
 				#without the above, the network would not accurately represent the interconnected triangles
 				if (preexisting_links[2] == 0){ #if there's not already a link between link[1] and the closest particle
-					links[lid,8] = total_lids #set child
+					links[lid,9] = total_lids #set child
 					links[total_lids,] = c(link[2],pid,0,0,active_sides[2],link[6]+1,lid,0,0)
 					particle_neighbors[[link[2]]] = c(particle_neighbors[[link[2]]],pid)
 					particle_neighbors[[pid]] = c(particle_neighbors[[pid]],link[2])
@@ -232,7 +245,7 @@ tick = function(sim, n_ticks=1){
 					particle_links[[pid]] = c(particle_links[[pid]],total_lids)
 					total_lids = total_lids + 1
 				}
-				else links[lid,8] = preexisting_links[2]
+				else links[lid,9] = preexisting_links[2]
 			}
 
 			#update position of new links

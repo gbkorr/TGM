@@ -18,28 +18,27 @@ Network = function(links){
 		links[,8], #child 1 lid
 		links[,9], #child 2 lid
 
-		TRUE, #has this link not been counted yet for descendants?
-
 		links[,6], #generation
-		0, # strahler
+		0, # strahler TODO
 		0, # leaves
 		0  # descendants
 	)
 
-
-
 	#calculate leaves
 	leaf_lids = which(network[,4] + network[,5] == 0) #childless nodes
+	counted = rep(1,nrow(network))
 	for (lid in leaf_lids){ #for each leaf, follow parents to progenitor
 		node = lid
 		d = 0
 		while(network[node,3] != 0){ #the initial link has a parent of "0"
 			#parents are strictly older than children, so this cannot hang
-			d = d + network[node,6]
+			if (counted[node]){
+				d = d + counted[node]
+				counted[node] = FALSE #mark node as counted for descendants
+			}
 			p = network[node,3] #parent lid
-			network[p,8] = network[p,8] + 1 #add leaf count
-			network[p,9] = network[p,9] + d #add descendants count
-			network[node,6] = FALSE #mark node as counted for descendants
+			network[p,7] = network[p,7] + 1 #add leaf count
+			network[p,8] = network[p,8] + d #add descendants count
 			node = p
 		}
 	}
