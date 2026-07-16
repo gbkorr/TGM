@@ -63,7 +63,7 @@ P_rules = function(
 ) list(as.list(environment()))[[1]]
 
 #initialize particles
-Init = function(p_rules=P_rules()){
+State = function(p_rules=P_rules()){
 	n_particles = p_rules$size^2 * p_rules$density
 
 #particles: MATRIX indexed by [pid,], i.e. one row per particle
@@ -110,7 +110,7 @@ Init = function(p_rules=P_rules()){
 
 	list(particles=particles,chunks=chunks,particle_neighbors=particle_neighbors,particle_links=particle_links,links=links,p_rules=p_rules)
 }
-default_init = Init()
+default_init = State()
 
 # ---- Sim Initialization ----
 Sim = function(rules=Rules(),state=default_init){
@@ -130,8 +130,14 @@ Sim = function(rules=Rules(),state=default_init){
 	else state$particles[1,1:2] = state$p_rules$size * c(0.5,0.5)
 	state$links[1,] = c(1,1,state$particles[1,1],state$particles[1,2],1,1,0,0,0)
 
+	# ---- Debug / Recording ----
+
+	record = list(
+		time_to_1k = 0 #ticks it took to grow 1000 links. 0 = not yet occurred. this is a useful proxy for the speed of model growth
+	)
+
 	set.seed(rules$seed) #set seed for model growth
-	list(state=state,rules=rules,time=1,rng=.Random.seed)
+	list(state=state,rules=rules,time=1,rng=.Random.seed,record=record)
 }
 
 # ---- Tick ----
@@ -171,6 +177,7 @@ tick = function(sim, n_ticks=1){
 				link_range = rules$link_range(pos)
 				cohesion = rules$cohesion(pos)
 				contraction_timer = rules$contraction(pos) / (rules$mobility(pos) * rules$growth_rate(pos))
+				branching = rules$branching(pos)
 
 				# ---- Get Closest Particle ----
 				nearby_pids = unlist(chunks[get_adjacent_chunk_ids(ceiling(pos/chunksize))])
@@ -223,7 +230,8 @@ tick = function(sim, n_ticks=1){
 				# ---- Link with Closest Particle ----
 				if (particles[pid,3] == -1) particles[pid,3] = contraction_timer #assign contraction timer if particle was free. uses location of link rather than particle; this doesn't really matter
 
-				active_sides = c(TRUE,TRUE) #for branching, TODO
+				if (sum(preexisting_links) == 0 && branching < runif(1)) active_sides = sample(c(TRUE,FALSE))
+				else active_sides = c(TRUE,TRUE) #for branching; which links will be set to active? If one side already exists, this is ignored and the new one is always set to active
 
 				if (preexisting_links[1] == 0){ #if there's not already a link between link[1] and the closest particle
 					links[lid,8] = total_lids #set child
@@ -277,9 +285,13 @@ tick = function(sim, n_ticks=1){
 
 			particles[active_particles,] = new_particles
 		}
-		# ---- Cleanup ----
-		#if link matrix is almost full, double its size
-		if (total_lids > (nrow(links) - length(active_lids) * 4)) links = rbind(links,matrix(0,nrow(links),ncol(links)))
+		# ---- Cleanup (every 10 ticks)----
+		if (t %% 10 == 0){
+			#if link matrix is almost full, double its size
+			if (total_lids > (nrow(links) - length(active_lids) * 4)) links = rbind(links,matrix(0,nrow(links),ncol(links)))
+			#record time it took to get to 1k links
+			if (!sim$record$time_to_1k && total_lids >= 1000) sim$record$time_to_1k = sim$time + t
+		}
 	}
 
 	sim$rng = .Random.seed #save rng state
@@ -292,16 +304,7 @@ tick = function(sim, n_ticks=1){
 
 # ---- Other ----
 
-test = function() Sim() |> tick(1000) |> draw()
-#TESTING ONLY draw function
-draw = function(sim){
-	particles=sim$state$particles
-	links=sim$state$links
-	plot(NULL,xlim=range(particles[,1]),ylim=range(particles[,2]))
-	for (l in 1:sum(links[,1] != 0)){
-			p1 = particles[links[l,1],1:2]
-			p2 = particles[links[l,2],1:2]
-			lines(c(p1[1],p2[1]),c(p1[2],p2[2]))
-	}
-}
+test = function() Sim() |> tick(1000)
+
+
 
