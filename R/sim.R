@@ -52,7 +52,7 @@ get_adjacent_chunk_ids = function(cpos){
 	return(chunks)
 } #chunkpos
 sum_coords = function(M) c(sum(M[,1]),sum(M[,2]))
-
+mag = function(xy)sqrt(sum(xy^2))
 
 # ---- Particle Initialization ----
 #particle initialization prototype
@@ -95,18 +95,20 @@ State = function(p_rules=P_rules()){
 	particle_links = rep(list(NULL),n_particles)
 
 #links: MATRIX indexed by [lid,], i.e. one row per link
-#endpoint1: [pid] of first particle in link
-#endpoint2: [pid] of second particle
-#avg. x: link midpoint. only ever calculated twice: on generation, and when the link attempts to grow
-#avg. y:
-#active?: bool if the link can grow
-#generation:
-#parent: [lid] of the link that spawned this
-#child1: [lid] of the first link spawned by this
-#child2: [lid] of the second link spawned by this
+#1 endpoint1: [pid] of first particle in link
+#2 endpoint2: [pid] of second particle
+#3 avg. x: link midpoint. only ever calculated twice: on generation, and when the link attempts to grow
+#4 avg. y:
+#5 active?: bool if the link can grow
+#6 unused
+#7 parent: [lid] of the link that spawned this
+#8 child1: [lid] of the first link spawned by this
+#9 child2: [lid] of the second link spawned by this
+#10 age: tick of creation
+#11 generation: parent generation + 1
 #--- full loops through this matrix (e.g. links[,3] == TRUE) should ABSOLUTELY MINIMIZED, ideally no more than once per tick
 
-	links = matrix(0,nrow=n_particles*2.5,ncol=9) #links gets doubled in size any time it's almost full
+	links = matrix(0,nrow=n_particles*2.5,ncol=11) #links gets doubled in size any time it's almost full
 
 	list(particles=particles,chunks=chunks,particle_neighbors=particle_neighbors,particle_links=particle_links,links=links,p_rules=p_rules)
 }
@@ -128,13 +130,10 @@ Sim = function(rules=Rules(),state=default_init){
 	# ---- Spawn Initial Link ----
 	if (!is.null(rules$seed_pos)) state$particles[1,1:2] = rules$seed_pos
 	else state$particles[1,1:2] = state$p_rules$size * c(0.5,0.5)
-	state$links[1,] = c(1,1,state$particles[1,1],state$particles[1,2],1,1,0,0,0)
+	state$links[1,] = c(1,1,state$particles[1,1],state$particles[1,2],1,0,0,0,0,1,1)
 
 	# ---- Debug / Recording ----
-
-	record = list(
-		time_to_1k = 0 #ticks it took to grow 1000 links. 0 = not yet occurred. this is a useful proxy for the speed of model growth
-	)
+	record = list() #this is useful if you want to log info, e.g. number of active links on each tick
 
 	set.seed(rules$seed) #set seed for model growth
 	list(state=state,rules=rules,time=1,rng=.Random.seed,record=record)
@@ -152,7 +151,7 @@ tick = function(sim, n_ticks=1){
 	total_lids = sum(links[,1] != 0) + 1 #first empty slot in links
 
 	#loop in here instead of a separate function to reduce overhead
-	for (t in 1:n_ticks){
+	for (t in sim$time + 1:n_ticks){
 		cat(sep='','\r',t)
 		# ---- Grow Links (in series) ----
 		active_lids = which(links[,5] == 1)
@@ -189,7 +188,7 @@ tick = function(sim, n_ticks=1){
 					particles[nearby_pids,1] - link[3],
 					particles[nearby_pids,2] - link[4]
 				) #vectors from link midpoint to particles
-				dists = apply(vecs,1,\(xy)sqrt(sum(xy^2)))
+				dists = apply(vecs,1,mag)
 				already_linked = which(particles[nearby_pids,3] != -1)
 				if (cohesion > 0) dists[already_linked] = dists[already_linked]/cohesion #apply cohesion penalty
 				else dists[already_linked] = Inf #speed up the math if cohesion is disabled
@@ -235,7 +234,7 @@ tick = function(sim, n_ticks=1){
 
 				if (preexisting_links[1] == 0){ #if there's not already a link between link[1] and the closest particle
 					links[lid,8] = total_lids #set child
-					links[total_lids,] = c(link[1],pid,0,0,active_sides[1],link[6]+1,lid,0,0) #create child
+					links[total_lids,] = c(link[1],pid,0,0,active_sides[1],0,lid,0,0,t,link[11]+1) #create child
 					particle_neighbors[[link[1]]] = c(particle_neighbors[[link[1]]],pid) #record new particle neighbors
 					particle_neighbors[[pid]] = c(particle_neighbors[[pid]],link[1])
 					particle_links[[link[1]]] = c(particle_links[[link[1]]],total_lids) #record links for particles
@@ -246,7 +245,7 @@ tick = function(sim, n_ticks=1){
 				#without the above, the network would not accurately represent the interconnected triangles
 				if (preexisting_links[2] == 0){ #if there's not already a link between link[1] and the closest particle
 					links[lid,9] = total_lids #set child
-					links[total_lids,] = c(link[2],pid,0,0,active_sides[2],link[6]+1,lid,0,0)
+					links[total_lids,] = c(link[2],pid,0,0,active_sides[2],0,lid,0,0,t,link[11]+1)
 					particle_neighbors[[link[2]]] = c(particle_neighbors[[link[2]]],pid)
 					particle_neighbors[[pid]] = c(particle_neighbors[[pid]],link[2])
 					particle_links[[link[2]]] = c(particle_links[[link[2]]],total_lids)
@@ -289,8 +288,6 @@ tick = function(sim, n_ticks=1){
 		if (t %% 10 == 0){
 			#if link matrix is almost full, double its size
 			if (total_lids > (nrow(links) - length(active_lids) * 4)) links = rbind(links,matrix(0,nrow(links),ncol(links)))
-			#record time it took to get to 1k links
-			if (!sim$record$time_to_1k && total_lids >= 1000) sim$record$time_to_1k = sim$time + t
 		}
 	}
 
