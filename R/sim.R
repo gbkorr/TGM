@@ -57,7 +57,7 @@ mag = function(xy)sqrt(sum(xy^2))
 # ---- Particle Initialization ----
 #particle initialization prototype
 P_rules = function(
-	size = 4, #length and width of bounding region
+	size = 8, #length and width of bounding region
 	density = 200, #particles/unit. TODO: add ability for heatmap
 	particle_seed = 1 #seed for particle distribution
 ) list(as.list(environment()))[[1]]
