@@ -192,6 +192,48 @@ Stats = function(sim,n=5000){
 			}
 	}
 
+	# ---- Porous Stats ----
+	if (rules$cohesion(origin) != 0){ #skip if dendritic
+		pores = list() #lists of pore vectors
+
+		#cycles can be detected with this neat trick: nearly all loops must include a link whose child is not of the expected generation, as it was preexisting
+		loop_closers_1 = c()
+		loop_closers_2 = c()
+		for (lid in nodes){
+				if (links[links[lid,8],11] != links[lid,11] + 1) loop_closers_1 = c(loop_closers_1,lid)
+				if (links[links[lid,9],11] != links[lid,11] + 1) loop_closers_2 = c(loop_closers_2,lid)
+		}
+
+		#we can detect a cycle when two parent paths converge. if one of the parent paths includes a loop closer before it converges, we split and check that path too
+		for (lid in loop_closers_1){
+				parent_ped = pedigree(lid,links)
+				child_ped = pedigree(links[lid,8],links)
+
+				#these distances may be off by one or two; need to double-check the math
+				d1 = match(TRUE, parent_ped %in% child_ped) #distance 1
+				d2 = match(TRUE, child_ped %in% parent_ped) #distance 2
+
+				#check for a smaller child cycle, for the case of:
+				#   v loop closer, lid corresponds to the 11 here
+				# 9 8 7 6 5 4 3 2 1
+				#  11       7     2
+				#  10 9 8 7 6 5 4 3
+
+				other_closers = which(child_ped %in% loop_closers_1 | child_ped %in% loop_closers_2)
+				other_closers = other_closers[other_closers < d2] #only look at those which close before the common convergence
+
+				for (closer in other_closers){
+						closer_ped = pedigree(child_ped[closer],links)
+						d3 = closer + match(TRUE, closer_ped %in% parent_ped) #child -> closer -> parent convergence
+						if (d3 < d2) d2 = d3 #shortest child dist is now this
+				}
+				#of course, this doesn't cover all fractal occurrences of this, so it's a bit flawed.
+				cycle = c(parent_ped[1:d1],rev(child_ped[1:d2]))
+				if (length(cycle) > 100) pores[[length(pores) + 1]] = cycle #ignore "cycles" that lead all the way back to the original
+		}
+
+	}
+
 	# ---- Calculate Stats ----
 	radius = median(links[nodes,12]) #radius of circle encompassing half the points
 	area = pi * radius^2 #area of circle encompassing half the points, in units^2
@@ -202,13 +244,28 @@ Stats = function(sim,n=5000){
 			tortuosity = mean(links[nodes[-1],13]/links[nodes[-1],12]), #ignore origin link to avoid /0
 			leafiness = length(leaf_nodes) / length(nodes),
 			density = density
-
 	)
 
-	#area = pi * r^2. r = mean(dist)
-
-
 	#links[nodes,]
+}
+
+pedigree = function(lid,links){
+	pointer_lid = lid
+	gen = links[lid,11] - 1
+	parent_path = rep(0,gen) #parent path to origin
+	for (i in 1:gen) {
+		pointer_lid = links[pointer_lid,7]
+		parent_path[i] = pointer_lid
+	}
+	parent_path
+}
+
+debug_draw_pores = function(pores,links){
+	plot(NULL,xlim=c(0,8),ylim=c(0,8))
+	for (i in 1:length(pores)){
+		nodes = pores[[i]]
+		lines(links[nodes,3:4])
+	}
 }
 
 

@@ -218,6 +218,7 @@ tick = function(sim, n_ticks=1){
 							}
 							else if (sum_pre == 1){
 								#expensive, unavoidable intersect() call to see what link is already there so we can record it as a child
+								#TODO: can I make this faster with a which(x %in% y)?
 								if (preexisting_links[1]) preexisting_links = c(intersect(particle_links[[pid]],particle_links[[link[1]]]),0)
 								else if (preexisting_links[2]) preexisting_links = c(0,intersect(particle_links[[pid]],particle_links[[link[2]]]))
 							}
