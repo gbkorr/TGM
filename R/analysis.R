@@ -213,24 +213,48 @@ Stats = function(sim,n=5000){
 				d1 = match(TRUE, parent_ped %in% child_ped) #distance 1
 				d2 = match(TRUE, child_ped %in% parent_ped) #distance 2
 
+				base_cycle = c(parent_ped[1:(d1-1)],rev(child_ped[1:d2])) #cuts out the shared value
+
 				#check for a smaller child cycle, for the case of:
 				#   v loop closer, lid corresponds to the 11 here
-				# 9 8 7 6 5 4 3 2 1
+				#		v       v detecting this guy
+				# 9 8 7 6 5 4 3 2 1 origin
 				#  11       7     2
 				#  10 9 8 7 6 5 4 3
+				#need to also check for the reverse! a smaller parent cycle
 
-				other_closers = which(child_ped %in% loop_closers_1 | child_ped %in% loop_closers_2)
-				other_closers = other_closers[other_closers < d2] #only look at those which close before the common convergence
+				other_closers = base_cycle[base_cycle %in% loop_closers_1 | base_cycle %in% loop_closers_2]
+
+				#close, but not detecting  shorter cycles properly.
+				#the good news is that we have everything we need; good base cycles, and all we have to do is test for any shorter chords
 
 				for (closer in other_closers){
-						closer_ped = pedigree(child_ped[closer],links)
-						d3 = closer + match(TRUE, closer_ped %in% parent_ped) #child -> closer -> parent convergence
-						if (d3 < d2) d2 = d3 #shortest child dist is now this
+					other_ped = pedigree(closer,links)
+					d3 = match(TRUE, other_ped %in% base_cycle) #length of new (maybe shorter) cycle segment
+					if (is.na(d3) | d3 == 1) next #no match, skip this one
+
+					p1 = which(base_cycle == closer)
+					p2 = which(base_cycle == other_ped[d3]) #this cycle segment starts at [p1] and ends at [p2]
+
+					if (p1 > p2) {p_ = p2; p2 = p1; p1 = p_} #swap so p1 < p2
+					if ((length(base_cycle) - abs(p2-p1)) < abs(p2-p1)) base_cycle = base_cycle[c((p1+1):length(base_cycle)),c(1:p1)] #base cycle is longer across the vector, so we reorder it
+
+					old_d = abs(p2-p1) #distance of the old cycle segment
+
+					#print(other_ped)
+					#crash()
+
+					if (d3 < old_d){
+						print(base_cycle)
+						base_cycle = base_cycle[c(1:p1,other_ped,p2:length(base_cycle))]
+						print(base_cycle)
+						crash()
+					}
+
 				}
-				#of course, this doesn't cover all fractal occurrences of this, so it's a bit flawed.
-				cycle = c(parent_ped[1:d1],rev(child_ped[1:d2]))
+
 				if (length(cycle) > 100) pores[[length(pores) + 1]] = cycle #ignore "cycles" that lead all the way back to the original
-		}
+			}
 
 	}
 
