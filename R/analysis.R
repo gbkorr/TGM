@@ -197,17 +197,23 @@ Stats = function(sim,n=5000){
 		pores = list() #lists of pore vectors
 
 		#cycles can be detected with this neat trick: nearly all loops must include a link whose child is not of the expected generation, as it was preexisting
-		loop_closers_1 = c()
-		loop_closers_2 = c()
+		closer_parents = c()
+		closer_children = c() #these are indexed by [cid]
 		for (lid in nodes){
-				if (links[links[lid,8],11] != links[lid,11] + 1) loop_closers_1 = c(loop_closers_1,lid)
-				if (links[links[lid,9],11] != links[lid,11] + 1) loop_closers_2 = c(loop_closers_2,lid)
+				if (links[links[lid,8],11] != links[lid,11] + 1) {
+					closer_parents = c(closer_parents,lid)
+					closer_children = c(closer_children,links[lid,8])
+				}
+				if (links[links[lid,9],11] != links[lid,11] + 1) {
+					closer_parents = c(closer_parents,lid)
+					closer_children = c(closer_children,links[lid,9])
+				}
 		}
 
-		#we can detect a cycle when two parent paths converge. if one of the parent paths includes a loop closer before it converges, we split and check that path too
-		for (lid in loop_closers_1){
-				parent_ped = pedigree(lid,links)
-				child_ped = pedigree(links[lid,8],links)
+		#we can detect a cycle when the two sides of a closer converge. Then we have to detect smaller subcycles
+		for (n in 1:length(closer_parents)){
+				parent_ped = pedigree(closer_parents[n],links)
+				child_ped = pedigree(closer_children[n],links)
 
 				#these distances may be off by one or two; need to double-check the math
 				d1 = match(TRUE, parent_ped %in% child_ped) #distance 1
@@ -215,42 +221,21 @@ Stats = function(sim,n=5000){
 
 				base_cycle = c(parent_ped[1:(d1-1)],rev(child_ped[1:d2])) #cuts out the shared value
 
-				#check for a smaller child cycle, for the case of:
-				#   v loop closer, lid corresponds to the 11 here
-				#		v       v detecting this guy
-				# 9 8 7 6 5 4 3 2 1 origin
-				#  11       7     2
-				#  10 9 8 7 6 5 4 3
-				#need to also check for the reverse! a smaller parent cycle
+				#look for smaller subcycles; these must involve a child in the base cycle
+				cycle_children = which(closer_children %in% base_cycle) #[cid] indices
+				for (cid in cycle_children) {
+					parent = closer_parents[cid]
+					ped = pedigree(parent,links)
 
-				other_closers = base_cycle[base_cycle %in% loop_closers_1 | base_cycle %in% loop_closers_2]
+					d3 = match(TRUE, ped %in% base_cycle)
+					if (!is.na(d3)){ #a shorter cycle exists
+						child_pos = which(base_cycle == closer_children[cid])
+						convergence_pos = which(base_cycle == ped[d3])
+						chord = ped[1:(d3 - 1)] #insert this between child_pos and convergence_pos
 
-				#close, but not detecting  shorter cycles properly.
-				#the good news is that we have everything we need; good base cycles, and all we have to do is test for any shorter chords
-
-				for (closer in other_closers){
-					other_ped = pedigree(closer,links)
-					d3 = match(TRUE, other_ped %in% base_cycle) #length of new (maybe shorter) cycle segment
-					if (is.na(d3) | d3 == 1) next #no match, skip this one
-
-					p1 = which(base_cycle == closer)
-					p2 = which(base_cycle == other_ped[d3]) #this cycle segment starts at [p1] and ends at [p2]
-
-					if (p1 > p2) {p_ = p2; p2 = p1; p1 = p_} #swap so p1 < p2
-					if ((length(base_cycle) - abs(p2-p1)) < abs(p2-p1)) base_cycle = base_cycle[c((p1+1):length(base_cycle)),c(1:p1)] #base cycle is longer across the vector, so we reorder it
-
-					old_d = abs(p2-p1) #distance of the old cycle segment
-
-					#print(other_ped)
-					#crash()
-
-					if (d3 < old_d){
-						print(base_cycle)
-						base_cycle = base_cycle[c(1:p1,other_ped,p2:length(base_cycle))]
-						print(base_cycle)
-						crash()
+						if (child_pos > convergence_pos) chord = rev(chord) #reverse vector to match correct order in base_cycle
+						base_cycle = c(base_cycle[1:(child_pos + 1)], chord, base_cycle[(convergence_pos - 1):length(base_cycle)])
 					}
-
 				}
 
 				if (length(cycle) > 100) pores[[length(pores) + 1]] = cycle #ignore "cycles" that lead all the way back to the original
