@@ -13,11 +13,11 @@ pak::pkg_install("gbkorr/TGM")
 library(TGM)
 ```
 
-[Intitialize Simulation](#initialize-simulation)
-[Timestep/Tick Sim](#timestep-sim)
-[Draw/Visualize Sim](#draw-sim)
-[Spatial Variation](#spatial-variation)
-[Analysis](#analysis)
+[Intitialize Simulation](#initialize-simulation)  
+[Timestep/Tick Sim](#timestep-sim)  
+[Draw/Visualize Sim](#draw-sim)  
+[Spatial Variation](#spatial-variation)  
+[Analysis](#analysis)  
 
 ## Initialize Simulation:
 
