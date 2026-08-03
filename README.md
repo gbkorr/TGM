@@ -73,12 +73,14 @@ Types:
 
 `type='l'` and `type='links'` both work.
 
-<img src="images/links.png" width="150">
-<img src="images/tris.png" width="150">
-<img src="images/bands.png" width="150">
-<img src="images/network.png" width="150">
-<img src="images/descendants.png" width="150">
-<img src="images/order.png" width="150">
+<div>
+<img src="images/links.png" width="200">
+<img src="images/tris.png" width="200">
+<img src="images/bands.png" width="200">
+<img src="images/network.png" width="200">
+<img src="images/descendants.png" width="200">
+<img src="images/order.png" width="200">
+</div>
 
 You can pass args to certain types, e.g.
 ```
