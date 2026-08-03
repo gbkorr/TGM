@@ -211,34 +211,38 @@ Stats = function(sim,n=5000){
 		}
 
 		#we can detect a cycle when the two sides of a closer converge. Then we have to detect smaller subcycles
-		for (n in 1:length(closer_parents)){
-				parent_ped = pedigree(closer_parents[n],links)
-				child_ped = pedigree(closer_children[n],links)
+		for (i in 1:length(closer_parents)){
+				parent_ped = pedigree(closer_parents[i],links)
+				child_ped = pedigree(closer_children[i],links)
 
 				#these distances may be off by one or two; need to double-check the math
 				d1 = match(TRUE, parent_ped %in% child_ped) #distance 1
 				d2 = match(TRUE, child_ped %in% parent_ped) #distance 2
 
-				base_cycle = c(parent_ped[1:(d1-1)],rev(child_ped[1:d2])) #cuts out the shared value
+				base_cycle = c(parent_ped[1:d1],rev(child_ped[1:d2]))
+				base_cycle = base_cycle[-d1] #cut out the shared value
 
 				#look for smaller subcycles; these must involve a child in the base cycle
 				cycle_children = which(closer_children %in% base_cycle) #[cid] indices
 				for (cid in cycle_children) {
 					parent = closer_parents[cid]
+					child = closer_children[cid]
 					ped = pedigree(parent,links)
 
+					child_pos = match(TRUE, base_cycle == closer_children[cid])
+					if (is.na(child_pos)) next #child is no longer in cycle
+
 					d3 = match(TRUE, ped %in% base_cycle)
-					if (!is.na(d3)){ #a shorter cycle exists
-						child_pos = which(base_cycle == closer_children[cid])
-						convergence_pos = which(base_cycle == ped[d3])
+					if (!is.na(d3) && d3 != 1){ #a shorter cycle exists
+						convergence_pos = match(TRUE, base_cycle == ped[d3])
 						chord = ped[1:(d3 - 1)] #insert this between child_pos and convergence_pos
 
 						if (child_pos > convergence_pos) chord = rev(chord) #reverse vector to match correct order in base_cycle
-						base_cycle = c(base_cycle[1:(child_pos + 1)], chord, base_cycle[(convergence_pos - 1):length(base_cycle)])
+						base_cycle = c(base_cycle[1:child_pos], chord, base_cycle[convergence_pos:length(base_cycle)])
 					}
 				}
 
-				if (length(cycle) > 100) pores[[length(pores) + 1]] = cycle #ignore "cycles" that lead all the way back to the original
+				if (length(base_cycle) > 100) pores[[length(pores) + 1]] = base_cycle #ignore "cycles" that lead all the way back to the original
 			}
 
 	}
@@ -289,6 +293,20 @@ debug_draw = function(sim,n=5000){
 	sim
 }
 
+
+debug_draw_network = function(links){
+	region = c(0,sim$state$p_rules$size)
+	plot(NULL,xlab='',ylab='',axes=FALSE,xlim = region, ylim = region)
+	for (l in 1:nrow(links)){
+		node = links[l,]
+		if (!node[17]) next #skip if not a real node
+		child1 = links[node[8],]
+		child2 = links[node[9],]
+
+		if (child1[17]) lines(rbind(node[3:4],child1[3:4]))
+		if (child2[17]) lines(rbind(node[3:4],child2[3:4]))
+	}
+}
 
 #function to extract info from a simset
 #function to multithread that

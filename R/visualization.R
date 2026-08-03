@@ -24,9 +24,9 @@ draw = function(sim,type='l',args=NULL){
 		n=,network = draw_network(state),
 		b=,bands = { #color by generation
 			cols = color_bands(ifelse(is.null(args),100,args))
-			draw_tris(state,\(link)cols(link[6]))
+			draw_tris(state,\(link)cols(link[11]))
 		},
-		d=,desc = draw_network(state,\(node)weight(node[8])), #number of descendants
+		d=,descendants = draw_network(state,\(node)weight(node[8])), #number of descendants
 		o=,order = draw_network(state,\(node)weight(node[7])), #number of descendant leaves
 		warning("Unknown draw type. Options: 'links', 'tris', 'network'") #"l", "t", "n" also work
 	)
