@@ -73,7 +73,12 @@ Types:
 
 `type='l'` and `type='links'` both work.
 
-![](images/links.png){width=200} ![](images/tris.png){width=200} ![](images/bands.png){width=200} ![](images/network.png){width=200} ![](images/descendants.png){width=200} ![](images/order.png){width=200}
+<img src="images/links.png" width="200">
+<img src="images/tris.png" width="200">
+<img src="images/bands.png" width="200">
+<img src="images/network.png" width="200">
+<img src="images/descendants.png" width="200">
+<img src="images/order.png" width="200">
 
 You can pass args to certain types, e.g.
 ```
