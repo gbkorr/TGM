@@ -1,7 +1,7 @@
 Highly optimized implementation of the TGM as described in Korr and Mulder 20XX
 Intended to facilitate the use of the TGM in research. Designed to be highly reproducible; RNG is heavily controlled and parameters are convenient to track, change, and share.
 
-NOT designed for tweaking/modification of the algorithm; the optimizations necessitate a somewhat obfuscated codebase. Please create your own implementation for those purposes; the paper and Python.ipynb serve as a good reference for this.
+NOT designed for tweaking/modification of the algorithm; the optimizations necessitate a somewhat obfuscated codebase. Please create your own implementation for those purposes; the paper and [Python.ipynb](https://github.com/gbkorr/TGM/blob/master/Python.ipynb) serve as a good reference for this.
 
 todo: need to link to Korr and Mulder 20XX and clarify that this page references the text
 
@@ -73,12 +73,12 @@ Types:
 
 `type='l'` and `type='links'` both work.
 
-<img src="images/links.png" width="200">
-<img src="images/tris.png" width="200">
-<img src="images/bands.png" width="200">
-<img src="images/network.png" width="200">
-<img src="images/descendants.png" width="200">
-<img src="images/order.png" width="200">
+<img src="images/links.png" width="150">
+<img src="images/tris.png" width="150">
+<img src="images/bands.png" width="150">
+<img src="images/network.png" width="150">
+<img src="images/descendants.png" width="150">
+<img src="images/order.png" width="150">
 
 You can pass args to certain types, e.g.
 ```
