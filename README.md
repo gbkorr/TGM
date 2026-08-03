@@ -71,7 +71,7 @@ Types:
 - descendants (d): Variable branch thickness based on number of descendants. (Fig. 4).
 - order (o): Variable branch thickness based on number of downstream leaves.
 
-`type='l'` and `type='links'` both work.
+`type='l'` and `type='links'` both work. Below are images of each type, `ltbndo` from left to right (same order as the list above).
 
 <div>
 <img src="images/links.png" width="200">
