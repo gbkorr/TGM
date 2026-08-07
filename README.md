@@ -120,13 +120,13 @@ radial = function(xy){
 }
 
 #on their own:
-draw_function(radial,size=8)
+draw_function(radial,size=8,label=TRUE)
 
 #behind model output:
 sim = Sim(Rules(link_range = radial)) |> tick(2000)
 draw(sim,'l',f=radial)
 ```
-![](images/function.png)
+<img src="images/function.png" width="400">
 
 ## Analysis
 
