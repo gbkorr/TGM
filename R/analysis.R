@@ -44,18 +44,7 @@
 # 	> how clumped are the particles?
 
 
-#questions:
-# tortuosity I believe does work properly with center-out calculation, but we should have a catch to PICK THE SHORTEST OPTION
-# how do we get around fast growth, slow contraction making it hard to know when to collect data?
-# 	> anything based on first 1k is going to basically ignore contraction, making the whole thing kinda dumb
-# 	> solution: wait quite a bit longer, but only analyze the n (1k) lowest-generation links
-# 	> this makes collection work at any time
-# some of these methods use links, some use the network... it might be a bit of a mess to handle both nicely.
-
-
-# maybe replace the current network with just a copy links, but adding some columns and a "is_node" bool (replace is_active!)
-# ^^^^^ ^^^^^^ ^^^^^ ^^^^^^
-
+#deprecated and only used for drawing; use Stats() instead.
 Network = function(links){
 	links = links[links[,1] > 0,] #only existing links. still indexed by [lid]
 
@@ -307,10 +296,5 @@ debug_draw_network = function(links){
 		if (child2[17]) lines(rbind(node[3:4],child2[3:4]))
 	}
 }
-
-#function to extract info from a simset
-#function to multithread that
-
-
 
 

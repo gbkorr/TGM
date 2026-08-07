@@ -10,6 +10,9 @@ Rules = function(
 	cohesion = 0.0,
 	branching = 1.0,
 
+	bias = 0,
+	bias_direction = c(1,0),
+
 	seed = 1,
 	seed_pos = NULL, #if defined, exact coordinates of starting link
 	growth_rate = 0.05 #usually constant
@@ -17,7 +20,18 @@ Rules = function(
 
 #evaluates parameter as either constant or a function of position
 parameter = function(rule) ifelse(is.function(rule),rule,function(pos) rule)
+quantize_parameter = function(f, resolution = 100) { #bakes a lookup matrix for a function to allow it to run much faster
+	M = matrix(0,resolution,resolution)
+	for (Y in 1:resolution){
+		for (X in 1:resolution){
+			x = seq(0,size,size/resolution)[X]
+			y = seq(0,size,size/resolution)[Y]
+			M[Y,X] = f(c(x,y))
+		}
+	}
 
+	M
+}
 
 # ---- Helpers ----
 get_chunks = function(particles,chunksize,region_size){
@@ -53,6 +67,7 @@ get_adjacent_chunk_ids = function(cpos){
 } #chunkpos
 sum_coords = function(M) c(sum(M[,1]),sum(M[,2]))
 mag = function(xy)sqrt(sum(xy^2))
+dot = function(u,v) u[1]*v[1]+u[2]*v[2]
 
 # ---- Particle Initialization ----
 #particle initialization prototype
@@ -117,11 +132,10 @@ default_init = State()
 # ---- Sim Initialization ----
 Sim = function(rules=Rules(),state=default_init){
 	#re-chunk if link_range is greater than 0.25
-	if (is.function(rules$link_range)) { #if linkrange is a function, disable chunking
-		state$chunks = list(1:nrow(state$particles))
-		rules$chunksize = 2 * state$p_rules$size
-	}
-	else if (rules$link_range > 0.25) { #recalculate chunks if needed
+	if (is.function(rules$link_range)) max_range = max(quantize_parameter(rules$link_range))
+	else max_range = rules$link_range
+
+	if (max_range > 0.25) { #recalculate chunks if needed
 		state$chunks = get_chunks(state$particles,rules$link_range,state$p_rules$size)
 		rules$chunksize = rules$link_range
 	}
@@ -177,6 +191,8 @@ tick = function(sim, n_ticks=1){
 				cohesion = rules$cohesion(pos)
 				contraction_timer = rules$contraction(pos) / (rules$mobility(pos) * rules$growth_rate(pos))
 				branching = rules$branching(pos)
+				bias = rules$bias(pos)
+				bias_direction = rules$bias_direction(pos)
 
 				# ---- Get Closest Particle ----
 				nearby_pids = unlist(chunks[get_adjacent_chunk_ids(ceiling(pos/chunksize))])
@@ -190,8 +206,21 @@ tick = function(sim, n_ticks=1){
 				) #vectors from link midpoint to particles
 				dists = apply(vecs,1,mag)
 				already_linked = which(particles[nearby_pids,3] != -1)
+
+				#apply cohesion
 				if (cohesion > 0) dists[already_linked] = dists[already_linked]/cohesion #apply cohesion penalty
 				else dists[already_linked] = Inf #speed up the math if cohesion is disabled
+
+				#apply bias
+				if (bias > 0){
+					dotfactors = vector('numeric',length(dists))
+					for (i in 1:length(dotfactors)){
+						dotfactors[i] = ((dot(vecs[i,]/dists[i],bias_direction) + 1)/2)
+						#+1/2 scales such that orthogonal vectors will be treated as double the distance, and directly opposite = infinite (cannot bond)
+					}
+					dotfactors = dotfactors ^ bias
+					dists = dists/dotfactors
+				}
 
 				# ---- Check Validity ----
 				skip = FALSE

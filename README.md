@@ -96,20 +96,37 @@ draw(sim,type='d',args=list(
 
 ## Spatial Variation
 
-Parameters can be defined to vary spatially (as described in the paper) by defining them with a function of location. Location (xy) should be a 2-length vector of x and y.
+Parameters can be defined to vary spatially (as described in the paper) by defining them with a function of location. Location (xy) should be a 2-length vector of x and y. Note: this can significantly 
 
-E.g.:
+E.g.: (images in the previous section are based on this output)
 ```
 sim = Sim(Rules(
-	cohesion = function(xy){0.6 * (8 - xy[1])/8} #0.0 to 0.6 based on X coordinate
+	cohesion = function(xy){0.6 * (4 - xy[1])/4} #0.0 to 0.6 based on X coordinate
 ),
-State(P_Rules(
+State(P_rules(
 	size = 4
 )))
 sim = tick(sim,2000)
 ```
 
-Images in the previous section.
+These functions can also be visualized:
+
+```
+radial = function(xy){
+    dist = sqrt(sum((xy-c(4,4))^2)) #distance to (4,4) (center)
+    
+  	#0.2 - 0.1 * dist/4
+  	0.1 + 0.1 * dist/4
+}
+
+#on their own:
+draw_function(radial,size=8)
+
+#behind model output:
+sim = Sim(Rules(link_range = radial)) |> tick(2000)
+draw(sim,'l',f=radial)
+```
+![](images/function.png)
 
 ## Analysis
 

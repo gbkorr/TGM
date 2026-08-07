@@ -1,10 +1,9 @@
 
 
-# ---- Basic Drawing ----
-draw = function(sim,type='l',args=NULL){
-	region = c(0,sim$state$p_rules$size)
-	plot(NULL,xlab='',ylab='',axes=FALSE,xlim = region, ylim = region)
 
+# ---- Basic Drawing ----
+draw = function(sim,type='l',args=NULL,f=NULL){
+	size = sim$state$p_rules$size
 	state = sim$state
 
 	#get line weighting
@@ -16,6 +15,18 @@ draw = function(sim,type='l',args=NULL){
 			scale = 0.01
 		),args)
 		weight = root_weight(args$min,args$max,args$scale)
+	}
+
+	if (is.null(f)) plot(NULL,xlab='',ylab='',axes=FALSE,xlim = c(0,size), ylim = c(0,size))
+	else {
+		resolution = 100
+		draw_function(f,size,resolution)
+		#normalize positions
+		adj_size = size/resolution
+		state$links[,3] = state$links[,3]/adj_size + 0.5
+		state$links[,4] = state$links[,4]/adj_size + 0.5
+		state$particles[,1] = state$particles[,1]/adj_size + 0.5
+		state$particles[,2] = state$particles[,2]/adj_size + 0.5
 	}
 
 	switch(type,
@@ -75,4 +86,37 @@ root_weight = function(min,max,s)\(d)(max-(max-min)*(1+s)^(-d))
 color_bands = function(period,col1='black',col2='white')\(x)colorRampPalette(c(col1,col2,col1))(period)[1 + floor(x %% period)]
 
 
+# ---- Utility ----
+#draw a spatially varying function
+draw_function = function(f,size,resolution=100,label=TRUE){
+	pm = par('mar')
+	on.exit(par(mar=pm)) #restore previous margins
+	par(mar=c(pm + c(0,0,0,4)))
 
+	M = matrix(0,resolution,resolution)
+	for (Y in 1:resolution){
+		for (X in 1:resolution){
+			x = seq(0,size,size/resolution)[X]
+			y = seq(0,size,size/resolution)[Y]
+			M[Y,X] = f(c(x,y))
+		}
+	}
+
+	M = t(M)[,nrow(M):1] #rotate because image() flips the axes
+
+  image(1:resolution,
+  			1:resolution,
+  			M,
+  			col = hcl.colors(resolution, "YlOrRd"),
+  			axes = FALSE,xlab='',ylab='')
+
+
+  #colorbar hack
+  if (resolution == 100 && label){
+	  res = 100
+	  half_res = floor(res/2)
+	  for (i in 1:res - 1) points(resolution + 4, 2 + 2 * i * 20/res,pch=15,cex=3,xpd=TRUE,col=rev(hcl.colors(res,'YlOrRd',rev=TRUE))[i])
+	  points(resolution + 4,2+2*res,pch=15,cex=3,xpd=TRUE,col='#fff')
+	  text(resolution + 8,2+2*c(0:4/5 * 25),labels=seq(min(M),max(M),length.out=5) |> round(4),xpd=TRUE,cex=1,adj=0)
+  }
+}

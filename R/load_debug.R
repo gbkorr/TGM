@@ -8,6 +8,7 @@
 #bran = Sim(Rules(branching=0.2)) |> tick(2500)
 #bco = Sim(Rules(branching=0.2, cohesion=0.4)) |> tick(2000)
 #wide = Sim(Rules(contraction=0.2)) |> tick(1000)
+#bia = Sim(Rules(bias=0.5)) |> tick(1000)
 
 #long = Sim(Rules(mobility=4,cohesion=0.4,link_range=0.26)) |> tick(3000)
 
