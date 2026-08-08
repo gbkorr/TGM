@@ -14,5 +14,6 @@
 #long = Sim(Rules(mobility=4,cohesion=0.4,link_range=0.26)) |> tick(3000)
 
 
-#winding branches
+#premade
 #Sim(Rules(branching=0.04),State(P_rules(size=8))) |> tick(10000) |> draw('bands',200)
+#Sim(Rules(genesis=0.00001)) |> tick(1000) |> draw('order')

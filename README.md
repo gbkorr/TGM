@@ -118,11 +118,9 @@ sim = tick(sim,2000)
 These functions can also be visualized:
 
 ```
-radial = function(xy){
-    dist = sqrt(sum((xy-c(4,4))^2)) #distance to (4,4) (center)
-    
-  	#0.2 - 0.1 * dist/4
-  	0.1 + 0.1 * dist/4
+radial = function(xy){ #0.2 to 0.1ish based on distance from the center
+    dist = sqrt(sum((xy-c(4,4))^2))
+  	0.2 - 0.1 * dist/4
 }
 
 #on their own:

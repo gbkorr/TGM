@@ -21,7 +21,7 @@ Rules = function(
 
 #evaluates parameter as either constant or a function of position
 parameter = function(rule) ifelse(is.function(rule),rule,function(pos) rule)
-quantize_parameter = function(f, resolution = 100) { #bakes a lookup matrix for a function to allow it to run much faster
+quantize_parameter = function(f, size, resolution = 100) { #bakes a lookup matrix for a function to allow it to run much faster
 	M = matrix(0,resolution,resolution)
 	for (Y in 1:resolution){
 		for (X in 1:resolution){
@@ -133,7 +133,7 @@ default_init = State()
 # ---- Sim Initialization ----
 Sim = function(rules=Rules(),state=default_init){
 	#re-chunk if link_range is greater than 0.25
-	if (is.function(rules$link_range)) max_range = max(quantize_parameter(rules$link_range))
+	if (is.function(rules$link_range)) max_range = max(quantize_parameter(rules$link_range,state$p_rules$size))
 	else max_range = rules$link_range
 
 	if (max_range > 0.25) { #recalculate chunks if needed
