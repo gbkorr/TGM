@@ -10,6 +10,7 @@ Rules = function(
 	cohesion = 0.0,
 	branching = 1.0,
 
+	genesis = 0,
 	bias = 0,
 	bias_direction = c(1,0),
 
@@ -167,6 +168,20 @@ tick = function(sim, n_ticks=1){
 	#loop in here instead of a separate function to reduce overhead
 	for (t in sim$time + 1:n_ticks){
 		cat(sep='','\r',t)
+
+		# ---- Genesis ----
+		if (sim$rules$genesis > 0){
+			free_particles = which(particles[,3] == -1)
+			if (is.function(sim$rules$genesis)) genesis_rates = rules$genesis(particles[free_particles,1:2]) #growth rate heatmap
+			else genesis_rates = rules$genesis()
+			particles_to_grow = free_particles[runif(length(free_particles)) < genesis_rates]
+
+			for (p in particles_to_grow){
+				links[total_lids,] = c(p,p,particles[p,1],particles[p,2],1,0,0,0,0,t,1)
+				total_lids = total_lids + 1
+			}
+		}
+
 		# ---- Grow Links (in series) ----
 		active_lids = which(links[,5] == 1)
 		if (is.function(sim$rules$growth_rate)) growth_rates = rules$growth_rate(links[active_lids,3:4]) #growth rate heatmap
