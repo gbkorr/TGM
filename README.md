@@ -5,6 +5,8 @@ NOT designed for tweaking/modification of the algorithm; the optimizations neces
 
 todo: need to link to Korr and Mulder 20XX and clarify that this page references the text
 
+> Note: this repo was written and coded entirely without the use of AI.
+
 # Basic Usage:
 
 Download:
@@ -29,6 +31,10 @@ sim = Sim(
 		contraction = 1.0,
 		cohesion = 0.0,
 		branching = 1.0,
+		genesis = 0.0,
+		bias = 0.0,
+		
+		bias_direction = c(1,0),
 	
 		seed = 1, #RNG seed for growth
 		seed_pos = NULL, #if defined, exact coordinates of starting link
@@ -96,7 +102,7 @@ draw(sim,type='d',args=list(
 
 ## Spatial Variation
 
-Parameters can be defined to vary spatially (as described in the paper) by defining them with a function of location. Location (xy) should be a 2-length vector of x and y. Note: this can significantly 
+Parameters can be defined to vary spatially (as described in the paper) by defining them with a function of location. Location (xy) should be a 2-length vector of x and y.
 
 E.g.: (images in the previous section are based on this output)
 ```
@@ -127,6 +133,8 @@ sim = Sim(Rules(link_range = radial)) |> tick(2000)
 draw(sim,'l',f=radial)
 ```
 <img src="images/function.png" width="400">
+
+Similarly, `bias_direction` can be a function which outputs a vector for a given input position xy.
 
 ## Analysis
 

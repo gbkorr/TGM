@@ -10,8 +10,8 @@ Rules = function(
 	cohesion = 0.0,
 	branching = 1.0,
 
-	genesis = 0,
-	bias = 0,
+	genesis = 0.0,
+	bias = 0.0,
 	bias_direction = c(1,0),
 
 	seed = 1,
@@ -208,6 +208,7 @@ tick = function(sim, n_ticks=1){
 				branching = rules$branching(pos)
 				bias = rules$bias(pos)
 				bias_direction = rules$bias_direction(pos)
+				bias_direction = bias_direction/mag(bias_direction) #normalize bias direction so only bias controls its strength
 
 				# ---- Get Closest Particle ----
 				nearby_pids = unlist(chunks[get_adjacent_chunk_ids(ceiling(pos/chunksize))])
