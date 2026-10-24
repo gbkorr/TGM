@@ -136,7 +136,7 @@ Similarly, `bias_direction` can be a function which outputs a vector for a given
 
 ## Analysis
 
-todo
+todo; analysis.R contains some functions for quantifying model output, but these are incomplete and intended for future work.
 
 
 
